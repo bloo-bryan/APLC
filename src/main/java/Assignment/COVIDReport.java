@@ -2,7 +2,6 @@ package Assignment;
 
 import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
-import com.opencsv.exceptions.CsvException;
 import org.jpl7.Query;
 import org.jpl7.Term;
 
@@ -16,37 +15,15 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class COVIDReport {
-    public static List<String[]> confirmedList = new ArrayList<>(); //CHANGE TO PRIVATE
-    public static List<String[]> deathList = new ArrayList<>();
-    public static HashMap<String, List<Integer>> confirmedMap = new HashMap<>();
-    public static HashMap<String, List<Integer>> deathsMap = new HashMap<>();
-    public static HashMap<String, List<Integer>> recoveredMap = new HashMap<>();
-    //public static HashMap<String, HashMap<String, List<Integer>>> fullMap = new HashMap<>();
-    public static List<List<Object>> sortedAscConfirmedList = new ArrayList<>();
-    public static List<List<Object>> sortedDscConfirmedList = new ArrayList<>();
+    static HashMap<String, List<Integer>> confirmedMap = new HashMap<>();
+    static HashMap<String, List<Integer>> deathsMap = new HashMap<>();
+    static HashMap<String, List<Integer>> recoveredMap = new HashMap<>();
+    static List<String[]> deathList = new ArrayList<>();
+    static List<List<Object>> sortedAscConfirmedList = new ArrayList<>();
+    static List<List<Object>> sortedDscConfirmedList = new ArrayList<>();
 
 
-    public static boolean readConfirmedIntoList() throws IOException, CsvException {
-        FileReader file = new FileReader("src/main/resources/time_series_covid19_confirmed_global-2.csv");
-        try(CSVReader csvReader = new CSVReader(file)) {
-            confirmedList = csvReader.readAll();
-        }
-        return true;
-    }
-
-    public static boolean readDeathIntoList() throws IOException, CsvException {
-        FileReader file = new FileReader("src/main/resources/time_series_covid19_deaths_global-2.csv");
-        try(CSVReader csvReader = new CSVReader(file)) {
-            deathList = csvReader.readAll();
-        }
-        return true;
-    }
-
-    public static void removeDuplicateCountryFromList() {
-        //deathList.stream().filter(i -> i.equals(deathList.indexOf(generateFrequencyMapForDuplicateCountries(deathList).get())))
-        //IntStream.range(0, 890).skip(4).map(i -> IntStream.)
-    }
-    public static boolean parseCSVIntoHashMap(FileReader file, HashMap<String, List<Integer>> map) throws IOException {
+    public static boolean parseCSVIntoHashMap(FileReader file, HashMap<String, List<Integer>> map) {
         try(CSVReader csvReader = new CSVReaderBuilder(file).withSkipLines(1).build()) {
             String[] nextline;
             while((nextline = csvReader.readNext()) != null) {
@@ -60,7 +37,7 @@ public class COVIDReport {
                                             .get(i)).collect(Collectors.toList()));
                 } else {
                     map.put(tokens[1].trim(),
-                            convertStrtoIntList(Arrays.asList(tokens[4].split("\\s*,\\s*")).stream()
+                            convertListToIntList(Arrays.asList(tokens[4].split("\\s*,\\s*")).stream()
                                     .map(i -> i.replaceAll("[\\s\\]]", ""))
                                     .toList(), Integer::parseInt));
                 }
@@ -76,15 +53,14 @@ public class COVIDReport {
         DefaultTableModel model = new DefaultTableModel();
         model.setColumnIdentifiers(new String[]{"Country/Region", "Total Confirmed Cases"});
         confirmedMap.forEach((key, value) ->
-                model.addRow(new Object[]{key, value.get((confirmedMap.get(key).size()-1))}));
+                model.addRow(new Object[]{key, Collections.max(confirmedMap.get(key))}));
         return model;
     }
 
     public static DefaultTableModel addConfirmedTotalToTable(String country) {
         DefaultTableModel model = new DefaultTableModel();
         model.setColumnIdentifiers(new String[]{"Country/Region", "Total Confirmed Cases"});
-        model.addRow(new Object[]{country, confirmedMap.get(country)
-                .get(confirmedMap.get(country).size()-1)});
+        model.addRow(new Object[]{country, Collections.max(confirmedMap.get(country))});
         return model;
     }
 
@@ -152,12 +128,13 @@ public class COVIDReport {
             }
         });
         fw.write("""
-                
-                quick_sort([],[]).
-                quick_sort([H|T], Sorted) :-
+
+                %sort ascending
+                quick_sort_asc([],[]).
+                quick_sort_asc([H|T], Sorted) :-
                     partition(H,T,L,G),
-                    quick_sort(L, SortedL),
-                    quick_sort(G, SortedG),
+                    quick_sort_asc(L, SortedL),
+                    quick_sort_asc(G, SortedG),
                     append(SortedL,[H|SortedG],Sorted).
 
                 partition(_,[],[],[]).
@@ -167,13 +144,14 @@ public class COVIDReport {
                 partition(P,[H|T],L,[H|G]) :-
                     H > P,
                     partition(P,T,L,G).
-                   \s
-                msort([],[]).
-                msort(List, Sorted) :- sort(0, @>=, List, Sorted).""");
+
+                %sort descending
+                msort_desc([],[]).
+                msort_desc(List, Sorted) :- sort(0, @>=, List, Sorted).""");
         fw.close();
     }
 
-    public static boolean generateSortedList(List<Object> result, List<List<Object>> sortedList) {
+    public static void generateSortedList(List<Object> result, List<List<Object>> sortedList) {
         sortedList.add(0, result);
         List<Object> sortedCountries = new ArrayList<>();
         result.stream().forEachOrdered(x -> {
@@ -185,7 +163,6 @@ public class COVIDReport {
             sortedCountries.add(map.get("X").toString().replaceAll("'", ""));
         });
         sortedList.add(1, sortedCountries);
-        return true;
     }
 
     public static DefaultTableModel addSortedConfirmedTotalToTable(List<List<Object>> sortedList) {
@@ -197,27 +174,11 @@ public class COVIDReport {
         return model;
     }
 
-    public static HashMap<String, Integer> generateFrequencyMapForDuplicateCountries(List<String[]> list) {
-        HashMap<String, Integer> countryFrequencyMap = new HashMap<>();
-        for(String[] s: list) {
-            if(countryFrequencyMap.containsKey(s[1])) countryFrequencyMap.put(s[1], countryFrequencyMap.get(s[1]) + 1);
-            else countryFrequencyMap.put(s[1], 1);
-        }
-        return countryFrequencyMap;
-    }
-
     // GENERICS
-    public static <T, K> List<K> convertStrtoIntList(List<T> strList, Function<T, K> converter) {
+    public static <T, K> List<K> convertListToIntList(List<T> strList, Function<T, K> converter) {
         return strList.stream().map(converter).collect(Collectors.toList());
     }
 
-    public static int totalConfirmedCasesByCountry(String country) {
-        return confirmedMap.get(country).stream().reduce(0, Integer::sum);
-    }
-
-//    public static List<String> function(List<String[]> list, String country) {
-//        return Arrays.asList(Objects.requireNonNull(list.stream().filter(i -> Arrays.asList(i).contains(country)).findFirst().orElse(null)));
-//    }
     // CURRYING
     public static Function<List<String[]>, Function<String, List<String>>> getRecordByCountry() {
         return list -> (country -> Arrays.asList(Objects.requireNonNull(
@@ -225,13 +186,13 @@ public class COVIDReport {
                         .findFirst().orElse(null))));
     }
 
-
     // FUNCTIONAL COMPOSITION
     public static Function<String, Integer> getLowestDeathIndex =
-            country -> getRecordByCountry().apply(deathList).apply(country).lastIndexOf("0") + 1;
+            country -> Collections.min(convertListToIntList(getRecordByCountry().apply(deathList).apply(country), Integer::parseInt));
     public static Function<Integer, String> getLowestDeathDateByIndex =
             index -> Arrays.asList(deathList.get(0)).get(index);
-    public static Function<String, String> getLowestDeathDateByCountry = getLowestDeathIndex.andThen(getLowestDeathDateByIndex);
+    public static Function<String, String> getLowestDeathDateByCountry =
+            getLowestDeathIndex.andThen(getLowestDeathDateByIndex);
 
 
 }

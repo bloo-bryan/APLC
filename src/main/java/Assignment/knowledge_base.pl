@@ -198,11 +198,12 @@ fact('Uganda',169396).
 fact('Micronesia',7727).
 fact('Suriname',81022).
 
-quick_sort([],[]).
-quick_sort([H|T], Sorted) :-
+%sort ascending
+quick_sort_asc([],[]).
+quick_sort_asc([H|T], Sorted) :-
     partition(H,T,L,G),
-    quick_sort(L, SortedL),
-    quick_sort(G, SortedG),
+    quick_sort_asc(L, SortedL),
+    quick_sort_asc(G, SortedG),
     append(SortedL,[H|SortedG],Sorted).
 
 partition(_,[],[],[]).
@@ -212,6 +213,7 @@ partition(P,[H|T],[H|L],G) :-
 partition(P,[H|T],L,[H|G]) :-
     H > P,
     partition(P,T,L,G).
-    
-msort([],[]).
-msort(List, Sorted) :- sort(0, @>=, List, Sorted).
+
+%sort descending
+msort_desc([],[]).
+msort_desc(List, Sorted) :- sort(0, @>=, List, Sorted).
