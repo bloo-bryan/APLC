@@ -3,10 +3,12 @@ package Assignment;
 import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
 import com.opencsv.exceptions.CsvException;
-import com.opencsv.exceptions.CsvValidationException;
+import org.jpl7.Query;
+import org.jpl7.Term;
 
 import javax.swing.table.DefaultTableModel;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
@@ -19,7 +21,10 @@ public class COVIDReport {
     public static HashMap<String, List<Integer>> confirmedMap = new HashMap<>();
     public static HashMap<String, List<Integer>> deathsMap = new HashMap<>();
     public static HashMap<String, List<Integer>> recoveredMap = new HashMap<>();
-    public static HashMap<String, HashMap<String, List<Integer>>> fullMap = new HashMap<>();
+    //public static HashMap<String, HashMap<String, List<Integer>>> fullMap = new HashMap<>();
+    public static List<List<Object>> sortedAscConfirmedList = new ArrayList<>();
+    public static List<List<Object>> sortedDscConfirmedList = new ArrayList<>();
+
 
     public static boolean readConfirmedIntoList() throws IOException, CsvException {
         FileReader file = new FileReader("src/main/resources/time_series_covid19_confirmed_global-2.csv");
@@ -89,9 +94,9 @@ public class COVIDReport {
                 "Lowest Deaths", "Highest Recoveries", "Lowest Recoveries"});
         deathsMap.forEach((key, value) ->
                 model.addRow(new Object[]{key, Collections.max(deathsMap.get(key)),
-                        Collections.min(deathsMap.get(key)),
+                        returnNonZeroMinimumInt(deathsMap.get(key)),
                         Collections.max(recoveredMap.get(key)),
-                        Collections.min(recoveredMap.get(key))}));
+                        returnNonZeroMinimumInt(recoveredMap.get(key))}));
         return model;
     }
 
@@ -100,9 +105,9 @@ public class COVIDReport {
         model.setColumnIdentifiers(new String[]{"Country/Region", "Highest Deaths",
                 "Lowest Deaths", "Highest Recoveries", "Lowest Recoveries"});
         model.addRow(new Object[]{country, Collections.max(deathsMap.get(country)),
-                Collections.min(deathsMap.get(country)),
+                returnNonZeroMinimumInt(deathsMap.get(country)),
                 Collections.max(recoveredMap.get(country)),
-                Collections.min(recoveredMap.get(country))});
+                returnNonZeroMinimumInt(recoveredMap.get(country))});
         return model;
     }
 
@@ -122,6 +127,73 @@ public class COVIDReport {
         deathsMap.forEach((key, value) ->
                 model.addRow(new Object[]{key, Collections.max(confirmedMap.get(key)),
                         Collections.max(deathsMap.get(key)), Collections.max(recoveredMap.get(key))}));
+        return model;
+    }
+
+    public static int returnNonZeroMinimumInt(List<Integer> list) {
+        return list.stream().filter(i -> i != 0).findFirst().orElse(0);
+    }
+
+    public static HashMap<String, Integer> createMaxConfirmedMap() {
+        HashMap<String, Integer> map = new HashMap<>();
+        confirmedMap.forEach((key, value) -> {
+            map.put(key, Collections.max(value));
+        });
+        return map;
+    }
+
+    public static void WriteToKnowledgeBase() throws IOException {  //boolean?
+        FileWriter fw = new FileWriter("src/main/java/Assignment/knowledge_base.pl");
+        createMaxConfirmedMap().forEach((key, value) -> {
+            try {
+                fw.write("fact('"+key+"',"+value+").\n");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        fw.write("""
+                
+                quick_sort([],[]).
+                quick_sort([H|T], Sorted) :-
+                    partition(H,T,L,G),
+                    quick_sort(L, SortedL),
+                    quick_sort(G, SortedG),
+                    append(SortedL,[H|SortedG],Sorted).
+
+                partition(_,[],[],[]).
+                partition(P,[H|T],[H|L],G) :-
+                    H =< P,
+                    partition(P,T,L,G).
+                partition(P,[H|T],L,[H|G]) :-
+                    H > P,
+                    partition(P,T,L,G).
+                   \s
+                msort([],[]).
+                msort(List, Sorted) :- sort(0, @>=, List, Sorted).""");
+        fw.close();
+    }
+
+    public static boolean generateSortedList(List<Object> result, List<List<Object>> sortedList) {
+        sortedList.add(0, result);
+        List<Object> sortedCountries = new ArrayList<>();
+        result.stream().forEachOrdered(x -> {
+            Query q2;
+            q2 = new Query("consult('"+"src/main/java/Assignment/knowledge_base.pl"+"').");
+            String qs = "fact(X," + x + ").";
+            q2 = new Query(qs);
+            Map<String, Term> map = q2.oneSolution();
+            sortedCountries.add(map.get("X").toString().replaceAll("'", ""));
+        });
+        sortedList.add(1, sortedCountries);
+        return true;
+    }
+
+    public static DefaultTableModel addSortedConfirmedTotalToTable(List<List<Object>> sortedList) {
+        DefaultTableModel model = new DefaultTableModel();
+        model.setColumnIdentifiers(new String[]{"Country/Region", "Total Confirmed Cases"});
+        IntStream.range(0, sortedList.get(0).size()).forEachOrdered(i -> {
+            model.addRow(new Object[]{sortedList.get(1).get(i), sortedList.get(0).get(i)});
+        });
         return model;
     }
 

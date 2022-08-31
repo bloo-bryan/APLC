@@ -29,7 +29,7 @@ public class UI extends JFrame implements ActionListener, ListSelectionListener 
     JScrollPane scrollPaneLeft, scrollPaneRight;
     //AddBtn addBtn;
     //DiscardBtn discardBtn;
-    JButton allConfirmedTotalBtn, highestAndLowestCountryBtn, searchBtn;
+    JButton allConfirmedTotalBtn, highestAndLowestCountryBtn, searchBtn, sortedAscBtn, sortedDscBtn;
     JLabel titleLabel, totalLabel, totalValueLabel;
     JTextField searchTF;
     TableStatus status = TableStatus.INACTIVE;
@@ -95,6 +95,10 @@ public class UI extends JFrame implements ActionListener, ListSelectionListener 
         allConfirmedTotalBtn.addActionListener(this);
         highestAndLowestCountryBtn = new JButton("Display highest/lowest death and recovered cases by country");
         highestAndLowestCountryBtn.addActionListener(this);
+        sortedAscBtn = new JButton("Display sorted confirmed cases ascending order");
+        sortedAscBtn.addActionListener(this);
+        sortedDscBtn = new JButton("Display sorted confirmed cases descending order");
+        sortedDscBtn.addActionListener(this);
 
         searchBtn = new JButton("Search Confirmed, Deaths, Recovered By Country");
         searchBtn.addActionListener(this);
@@ -113,9 +117,11 @@ public class UI extends JFrame implements ActionListener, ListSelectionListener 
 //        totalValueLabel.setHorizontalAlignment(SwingConstants.RIGHT);
 
 
-        totalPanel = new JPanel(new GridLayout(1,2, 10, 5));
+        totalPanel = new JPanel(new GridLayout(2,2, 10, 5));
         totalPanel.add(allConfirmedTotalBtn);
         totalPanel.add(highestAndLowestCountryBtn);
+        totalPanel.add(sortedAscBtn);
+        totalPanel.add(sortedDscBtn);
 
         rightContentPanel = new JPanel(new BorderLayout(5, 10));
         rightContentPanel.add(searchPanel, BorderLayout.NORTH);
@@ -176,13 +182,19 @@ public class UI extends JFrame implements ActionListener, ListSelectionListener 
                 JOptionPane.showMessageDialog(this, "Not found. Data of all countries will be shown");
                 table.setModel(COVIDReport.addCfmDeathsRecvrToTable());
             }
+        } else if(e.getSource() == sortedAscBtn) {
+            status = TableStatus.SORTED_ASC_CONFIRMED_BY_COUNTRY;
+            table.setModel(COVIDReport.addSortedConfirmedTotalToTable(COVIDReport.sortedAscConfirmedList));
+        } else if(e.getSource() == sortedDscBtn) {
+            status = TableStatus.SORTED_DSC_CONFIRMED_BY_COUNTRY;
+            table.setModel(COVIDReport.addSortedConfirmedTotalToTable(COVIDReport.sortedDscConfirmedList));
         }
     }
 
     @Override
     public void valueChanged(ListSelectionEvent e) {
         if(!e.getValueIsAdjusting()) {
-            if(status == TableStatus.CONFIRMED_BY_COUNTRY) {
+            if(status == TableStatus.CONFIRMED_BY_COUNTRY || status == TableStatus.SORTED_ASC_CONFIRMED_BY_COUNTRY || status == TableStatus.SORTED_DSC_CONFIRMED_BY_COUNTRY) {
                 table.setModel(COVIDReport.addConfirmedTotalToTable(list.getSelectedValue().toString()));
             } else if(status == TableStatus.HIGHEST_LOWEST_DEATH_RECOVERED_BY_COUNTRY) {
                 table.setModel(COVIDReport.addHighestLowestToTable(list.getSelectedValue().toString()));
